@@ -1,0 +1,14 @@
+Current Status:
+---------------
+
+1) Basic framework for GA ready. 
+    Consists of chromosome which reads a chromosome and returns the real value.
+    Consists of population utils which has utilities for playing with chromosome.
+    Operators framework ready
+
+TODO:
+-----
+
+1) Check operators and how to define them
+2) How to deal with illegal chromosomes
+3) Unit tests if possible.
