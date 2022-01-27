@@ -247,10 +247,10 @@ x_history = []
 y_history = []
 for j in range(1):
     bounds = (-0.5,1)
-    accuracy = 10
+    accuracy = 7
     seed = 123 + j
     initial_pop_size = 5
-    num_generations = 200
+    num_generations = 30
 
     options = ga_options(accuracy, bounds, objective_function, initial_pop_size, seed)
 
@@ -265,8 +265,8 @@ for j in range(1):
 x_history = np.array(x_history)
 y_history = np.array(y_history)
 
-print(x_history.shape)
-print(y_history.shape)
+# print(x_history.shape)
+# print(y_history.shape)
 
 import matplotlib.pyplot as plt
 
@@ -278,4 +278,62 @@ for iterate in range(1):
     plt.ylabel("Fitness")
     
 plt.legend()
-plt.show()
+plt.tight_layout()
+plt.savefig("min_max_mean_q1", dpi = 500, format = 'png')
+# plt.show()
+
+from matplotlib import animation
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = plt.axes(xlim=(-0.5,1.), ylim=(-0.25, 2))
+x = np.linspace(-0.5,1,10000)
+y = objective_function(x)
+line_1, = ax.plot(x,y, label = "Objective Function")
+ax.plot(x_history[0,-1,:], y_history[0,-1,:],".k", markersize = 5, label = "Points")
+ax.set_xlabel("x")
+ax.set_ylabel("f(x)")
+ax.legend()
+fig.tight_layout()
+plt.savefig("Evalute_best_point_q1", dpi = 500, format = 'png')
+# plt.show()
+
+
+fig = plt.figure()
+ax = plt.axes()
+
+x_best = []
+for iter, y in enumerate(y_history[0,:,:]):
+    ind = np.argmax(y)
+    x_best.append(x_history[0,iter,ind])
+
+ax.plot(x_best, label = "Trajectory of best point in every generation")
+ax.plot(x_best, "ok", markersize = 5, label = "Points")
+ax.set_xlabel("Number of Generation")
+ax.set_ylabel("Best Point")
+ax.legend()
+fig.tight_layout()
+plt.savefig("point_trajectory_q1", dpi = 500, format = 'png')
+
+
+
+
+# line, = ax.plot([], [], ".k", markersize = 10)
+# time_text = ax.text(0.05, 0.95,'',horizontalalignment='left',verticalalignment='top', transform=ax.transAxes)
+
+
+
+# def animate(i):
+#     print(i)
+#     x = x_history[0,i,:]
+#     y = y_history[0,i,:]
+#     line.set_data(x, y)
+#     time_text.set_text("Generation {}".format(i))
+#     return line, [time_text,],
+
+
+# anim = animation.FuncAnimation(fig, animate, frames=num_generations, interval=201, blit=False)
+# # ax.legend()
+# plt.show()
+
+print(x_history[0,-1,:])
+print(y_history[0,-1,:])

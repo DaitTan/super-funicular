@@ -235,32 +235,7 @@ y_history = np.array(y_history)
 
 
 
-
-# from matplotlib import animation
 import matplotlib.pyplot as plt
-# fig = plt.figure()
-# ax = plt.axes(xlim=(-0.5,1.), ylim=(-0.25, 2))
-# x = np.linspace(-0.5,1,10000)
-# y = objective_function(x)
-# line_1, = ax.plot(x,y)
-# line, = ax.plot([], [], ".k", markersize = 10)
-# time_text = ax.text(0.05, 0.95,'',horizontalalignment='left',verticalalignment='top', transform=ax.transAxes)
-
-
-
-# def animate(i):
-#     x = x_genotype[i]
-#     y = corres_y[i]
-#     line.set_data(x, y)
-#     time_text.set_text("Generation {}".format(i))
-#     return line, [time_text,],
-
-
-# anim = animation.FuncAnimation(fig, animate, frames=num_generations, interval=200, blit=False)
-# # ax.legend()
-# plt.show()
-
-# plt.show()
 
 for iterate in range(1):
     plt.plot(np.max(y_history[iterate,:,:],1), label = "Maximum Fitness")
@@ -268,13 +243,64 @@ for iterate in range(1):
     plt.plot(np.mean(y_history[iterate,:,:],1), label = "Mean Fitness")
     plt.xlabel("Number of Generations")
     plt.ylabel("Fitness")
+    
 plt.legend()
-plt.show()
+plt.tight_layout()
+plt.savefig("min_max_mean_q2", dpi = 500, format = 'png')
+# plt.show()
 
-phenotype, fitness = pop_1.rank_by_fitness()
+from matplotlib import animation
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = plt.axes(xlim=(-0.5,1.), ylim=(-0.25, 2))
+x = np.linspace(-0.5,1,10000)
+y = objective_function(x)
+line_1, = ax.plot(x,y, label = "Objective Function")
+ax.plot(x_history[0,-1,:], y_history[0,-1,:],".k", markersize = 5, label = "Points")
+ax.set_xlabel("x")
+ax.set_ylabel("f(x)")
+ax.legend()
+fig.tight_layout()
+plt.savefig("Evalute_best_point_q2", dpi = 500, format = 'png')
+# plt.show()
 
-print(chromosome(phenotype,options).get_genotypes())
-print(fitness)
+
+fig = plt.figure()
+ax = plt.axes()
+
+x_best = []
+for iter, y in enumerate(y_history[0,:,:]):
+    ind = np.argmax(y)
+    x_best.append(x_history[0,iter,ind])
+
+ax.plot(x_best, label = "Trajectory of best point in every generation")
+ax.plot(x_best, "ok", markersize = 5, label = "Points")
+ax.set_xlabel("Number of Generation")
+ax.set_ylabel("Best Point")
+ax.legend()
+fig.tight_layout()
+plt.savefig("point_trajectory_q2", dpi = 500, format = 'png')
 
 
-# print()
+
+
+# line, = ax.plot([], [], ".k", markersize = 10)
+# time_text = ax.text(0.05, 0.95,'',horizontalalignment='left',verticalalignment='top', transform=ax.transAxes)
+
+
+
+# def animate(i):
+#     print(i)
+#     x = x_history[0,i,:]
+#     y = y_history[0,i,:]
+#     line.set_data(x, y)
+#     time_text.set_text("Generation {}".format(i))
+#     return line, [time_text,],
+
+
+# anim = animation.FuncAnimation(fig, animate, frames=num_generations, interval=201, blit=False)
+# # ax.legend()
+# plt.show()
+
+print(x_history[0,-1,:])
+print(y_history[0,-1,:])
