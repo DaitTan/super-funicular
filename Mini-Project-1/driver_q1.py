@@ -131,7 +131,7 @@ class geneticAlgorithmOperators:
             # print(parent_2)
             coin_toss = self.ga_options.rng.uniform(0,1,1)[0]
             
-            if coin_toss > reproduce_options["crossover_probablity"]:
+            if coin_toss < reproduce_options["crossover_probablity"]:
                 # print("Crossing")
                 
                 point = self.ga_options.rng.choice((self.ga_options.accuracy+2), size = 1, replace=False)[0]
@@ -159,14 +159,14 @@ class geneticAlgorithmOperators:
             enc_string = population_pheno[iterate]
             temp = list(enc_string)
             coin_toss = self.ga_options.rng.uniform(0,1,len(enc_string))
-            select_index = self.ga_options.rng.choice(len(enc_string), size = len(enc_string), replace=False)
+            # select_index = self.ga_options.rng.choice(len(enc_string), size = len(enc_string), replace=False)
             mutation_bits = self.ga_options.rng.integers(0,10, size = len(enc_string))
-            offspring = enc_string
+            # offspring = enc_string
             # print(offspring)
             # offspring[coin_toss>reproduce_options["mutation_probablity"]] = mutation_bits[coin_toss>reproduce_options["mutation_probablity"]]
             # print(offspring)
             for iterate_2 in range(len(enc_string)):
-                if coin_toss[iterate_2] > reproduce_options["mutation_probablity"]:
+                if coin_toss[iterate_2] < reproduce_options["mutation_probablity"]:
                     
                     temp[iterate_2] = str(mutation_bits[iterate_2])
                     
@@ -174,10 +174,11 @@ class geneticAlgorithmOperators:
             mutated_os = "".join(temp)
             # print(offspring)
             # print(coin_toss)
-            # print(coin_toss > reproduce_options["mutation_probablity"])
-            # print(select_index)
+            # print(enc_string)
+            # print(coin_toss < reproduce_options["mutation_probablity"])
+            # # print(select_index)
             # print(mutation_bits)
-            # print(mutates_os)
+            # print(mutated_os)
             # print(f)
             mutated_offsprings.append(mutated_os)
             
@@ -188,19 +189,19 @@ class geneticAlgorithmOperators:
         num_pop = current_population.get_chromosome_size()
         ranked_fit_individuals, _ = current_population.rank_by_fitness()
         elite_children_count = int(np.floor(num_pop * reproduce_options["prob_elite_children"]))
-
-        if elite_children_count <= 2:
+        # print(elite_children_count)
+        if elite_children_count < 2:
             raise Exception("Elite children count is {}. Try increasing the prob_elite_children parameter".format(elite_children_count))
-        if num_pop - elite_children_count <= 2:
-            warnings.warn("No population for reproduction. If this is not what you intended, try decresing prob_elite_children parameter.")
-            new_population = current_population
-        else:
+        # if num_pop - elite_children_count <= 2:
+        #     warnings.warn("No population for reproduction. If this is not what you intended, try decresing prob_elite_children parameter.")
+        #     elite_children = current_population
+        # else:
             # print(ranked_fit_individuals)
-            elite_children = chromosome(ranked_fit_individuals[0:elite_children_count], self.ga_options)
-            number_of_offsprings = num_pop - elite_children_count
-            crossover_offsprings = self.single_point_crossover(elite_children, number_of_offsprings)
-            mutated_offsprings = self.mutation(crossover_offsprings, reproduce_options)
-            elite_children.add_phenotypes(mutated_offsprings)
+        elite_children = chromosome(ranked_fit_individuals[0:elite_children_count], self.ga_options)
+        number_of_offsprings = num_pop - elite_children_count
+        crossover_offsprings = self.single_point_crossover(elite_children, number_of_offsprings)
+        mutated_offsprings = self.mutation(crossover_offsprings, reproduce_options)
+        elite_children.add_phenotypes(mutated_offsprings)
 
 
         return elite_children
@@ -211,86 +212,70 @@ def objective_function(x):
     return -1*(x * np.sin(10*np.pi*x) + 1)
 
 # phenotypes = np.array(["12345678", "53456257", "08791232"])
-bounds = (-0.5,1)
-accuracy = 10
-seed = 123
-initial_pop_size = 50
-options = ga_options(accuracy, bounds, objective_function, initial_pop_size, seed)
 
-reproduce_options = {"crossover_probablity":0.5, "prob_elite_children":0.8, "mutation_probablity":0.5}
+def objective_function(x):
+    return (x * np.sin(10*np.pi*x) + 1)
 
-selection_algorithm_options = {"type":"tournament", "num_players":3, "number_of_offsprings":5, "replace":True}
+def run_ga(num_generations, ga_options, selection_algorithm_options, reproduce_options):
+    
 
-hist = []
-hist_mean = []
-hist_max = []
-hist_min = []
+    x_genotype = []
+    corres_y = []
 
-
-ga = geneticAlgorithmOperators(options)
-num_generations = 80
-pop_1 = ga.generate_legal_phenotypes()
-fitness = pop_1.get_fitness()
-max_fit = np.argmax(fitness)
-min_fit = np.argmin(fitness)
-mean_fit = np.mean(fitness)
-hist_max.append(max_fit)
-hist_min.append(min_fit)
-hist_mean.append(mean_fit)
-
-x_genotype = []
-corres_y = []
-x_genotype.append(pop_1.get_genotypes())
-corres_y.append(pop_1.get_fitness())
-
-for iterate in range(num_generations):
-    new_pop_1 = ga.reproduce(pop_1, reproduce_options)
-    pop_1 = new_pop_1.reduce_population(options.initial_population_size)
+    ga = geneticAlgorithmOperators(ga_options)
+    
+    pop_1 = ga.generate_legal_phenotypes()
     fitness = pop_1.get_fitness()
-    max_fit = np.argmax(fitness)
-    min_fit = np.argmin(fitness)
-    mean_fit = np.mean(fitness)
-    hist_max.append(max_fit)
-    hist_min.append(min_fit)
-    hist_mean.append(mean_fit)
+    
     x_genotype.append(pop_1.get_genotypes())
-    corres_y.append(pop_1.get_fitness())
+    corres_y.append(fitness)
+
+    for _ in range(num_generations):
+        selected_pop,_ = ga.selection(pop_1, selection_algorithm_options)
+        new_pop_1 = ga.reproduce(selected_pop, reproduce_options)
+        pop_1 = new_pop_1.reduce_population(options.initial_population_size)
+        fitness = pop_1.get_fitness()
+        x_genotype.append(pop_1.get_genotypes())
+        corres_y.append(fitness)
+
+    population = pop_1
+    return population, x_genotype, corres_y
 
 
 
+x_history = []
+y_history = []
+for j in range(1):
+    bounds = (-0.5,1)
+    accuracy = 10
+    seed = 123 + j
+    initial_pop_size = 5
+    num_generations = 200
 
-from matplotlib import animation
+    options = ga_options(accuracy, bounds, objective_function, initial_pop_size, seed)
+
+    reproduce_options = {"crossover_probablity":0.3, "prob_elite_children":0.4, "mutation_probablity":0.3}
+
+    selection_algorithm_options = {"type":"tournament", "num_players":3, "number_of_offsprings":initial_pop_size, "replace":True}
+
+    pop_1, x_genotype, corres_y = run_ga(num_generations, options, selection_algorithm_options, reproduce_options)
+    x_history.append(x_genotype)
+    y_history.append(corres_y)
+
+x_history = np.array(x_history)
+y_history = np.array(y_history)
+
+print(x_history.shape)
+print(y_history.shape)
+
 import matplotlib.pyplot as plt
-fig = plt.figure()
-ax = plt.axes(xlim=(-0.5,1.), ylim=(-0.25, 2))
-x = np.linspace(-0.5,1,10000)
-y = objective_function(x)
-line_1, = ax.plot(x,-1*y)
-line, = ax.plot([], [], ".k", markersize = 10)
-time_text = ax.text(0.05, 0.95,'',horizontalalignment='left',verticalalignment='top', transform=ax.transAxes)
 
-
-
-def animate(i):
-    x = x_genotype[i]
-    y = corres_y[i]
-    line.set_data(x, -1*y)
-    time_text.set_text("Generation {}".format(i))
-    return line, [time_text,],
-
-
-anim = animation.FuncAnimation(fig, animate, frames=num_generations, interval=200, blit=False)
-# ax.legend()
+for iterate in range(1):
+    plt.plot(np.max(y_history[iterate,:,:],1), label = "Maximum Fitness")
+    plt.plot(np.min(y_history[iterate,:,:],1), label = "Minimum Fitness")
+    plt.plot(np.mean(y_history[iterate,:,:],1), label = "Mean Fitness")
+    plt.xlabel("Number of Generations")
+    plt.ylabel("Fitness")
+    
+plt.legend()
 plt.show()
-# plt.show()
-# # plt.plot(hist_max, label = "max fitness")
-# # plt.plot(hist_min, label = "min fitness")
-# # plt.plot(hist_mean, label = "mean fitness")
-# # plt.show()
-
-# phenotype, fitness = pop_1.rank_by_fitness()
-
-# print(chromosome(phenotype,options).get_genotypes())
-# print(fitness)
-
-
