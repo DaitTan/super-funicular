@@ -1,9 +1,4 @@
-from audioop import cross
-from cmath import inf, pi
 from dataclasses import replace
-# from msilib.schema import Error
-from platform import release
-import random
 import numpy as np
 import warnings
 from rsa import sign
@@ -39,7 +34,7 @@ class chromosome():
         fitness = np.array([self.ga_options.fitness_function(x) for x in genotypes])
         cond_1 = genotypes < self.ga_options.lower_bound
         cond_2 = genotypes > self.ga_options.upper_bound
-        fitness[cond_1 | cond_2] = -1
+        fitness[cond_1 | cond_2] = 0
         return fitness
 
     def add_phenotypes(self, new_phenotypes):
@@ -96,13 +91,10 @@ class geneticAlgorithmOperators:
             select_index = self.ga_options.rng.choice(len(elite_children_fitness), size = 2, replace = False)
             parent_1 = elite_children_phenotypes[select_index[0]]
             parent_2 = elite_children_phenotypes[select_index[1]]
-            # print(parent_1)
-            # print(parent_2)
+
             coin_toss = self.ga_options.rng.uniform(0,1,1)[0]
             
             if coin_toss < reproduce_options["crossover_probablity"]:
-                # print("Crossing")
-                
                 point = self.ga_options.rng.choice((self.ga_options.accuracy+2), size = 1, replace=False)[0]
                 # print(point)
                 offspring_1 = parent_1[0:point] + parent_2[point:]
@@ -131,17 +123,11 @@ class geneticAlgorithmOperators:
         mutated_offsprings = []
         for iterate, prob in enumerate(coin_toss):
             if prob < reproduce_options["mutation_probablity"]:
-                # print("Mutating")
+
                 mutated_offsprings.append(population_pheno[iterate] + mut[iterate])
             else:
                 mutated_offsprings.append(population_pheno[iterate])
-                # print("Not Mutating")
-        # print(population_pheno)
-        # print(mut)
-        # print(mutated_offsprings)
 
-        # print(f)
-            
 
         return chromosome(np.array(mutated_offsprings), self.ga_options)
 
@@ -152,20 +138,14 @@ class geneticAlgorithmOperators:
         # print(elite_children_count)
         if elite_children_count < 2:
             raise Exception("Elite children count is {}. Try increasing the prob_elite_children parameter".format(elite_children_count))
-            # print(ranked_fit_individuals)
+
         elite_children = chromosome(ranked_fit_individuals[0:elite_children_count], self.ga_options)
-        # print(elite_children.phenotypes.shape)
+
         number_of_offsprings = num_pop - elite_children_count
-        # print(num_pop)
-        # print(elite_children_count)
-        # print(number_of_offsprings)
         crossover_offsprings = self.single_point_crossover(elite_children, number_of_offsprings, reproduce_options)
         mutated_offsprings = self.mutation(crossover_offsprings, reproduce_options)
         # print(mutated_offsprings.phenotypes.shape)
         elite_children.add_phenotypes(mutated_offsprings)
-
-        # print(elite_children.phenotypes.shape)
-        # print(f)
 
 
         return elite_children
@@ -174,6 +154,7 @@ class geneticAlgorithmOperators:
 def objective_function(x):
     return (x * np.sin(10*np.pi*x) + 1)
 
+import time
 def run_ga(num_generations, ga_options, selection_algorithm_options, reproduce_options):
     
 
@@ -187,7 +168,7 @@ def run_ga(num_generations, ga_options, selection_algorithm_options, reproduce_o
     
     x_genotype.append(pop_1.get_genotypes())
     corres_y.append(fitness)
-
+    t0 = time.clock()
     for _ in range(num_generations):
         selected_pop,_ = ga.selection(pop_1, selection_algorithm_options)
         new_pop_1 = ga.reproduce(selected_pop, reproduce_options)
@@ -196,42 +177,41 @@ def run_ga(num_generations, ga_options, selection_algorithm_options, reproduce_o
         fitness = pop_1.get_fitness()
         x_genotype.append(pop_1.get_genotypes())
         corres_y.append(fitness)
-
+    time_elapsed = time.clock()-t0
     population = pop_1
-    return population, np.array(x_genotype), np.array(corres_y)
+    return population, np.array(x_genotype), np.array(corres_y), time_elapsed
 
 
 
 x_history = []
 y_history = []
+time_history = []
 num_runs = 1
-for j in range(num_runs):
+for j in range(50):
     seed = 123 + j
     print(seed)
     bounds = (-0.5,1)
     accuracy = 5
     
-    initial_pop_size = 5
-    num_generations = 200
+    initial_pop_size = 10
+    num_generations = 100
 
     options = ga_options(accuracy, bounds, objective_function, initial_pop_size, seed)
 
     reproduce_options = {"crossover_probablity":0, "prob_elite_children":0.4, "mutation_probablity":0.3, "mutation_noise_mean":0, "mutation_noise_std":0.5}
 
-    selection_algorithm_options = {"type":"tournament", "num_players":3, "number_of_offsprings":initial_pop_size, "replace":True}
+    selection_algorithm_options = {"type":"tournament", "num_players":2, "number_of_offsprings":initial_pop_size, "replace":True}
 
-    pop_1, x_genotype, corres_y = run_ga(num_generations, options, selection_algorithm_options, reproduce_options)
+    pop_1, x_genotype, corres_y, time_elapsed_indi = run_ga(num_generations, options, selection_algorithm_options, reproduce_options)
     # print(corres_y)
     x_history.append(x_genotype)
     y_history.append(corres_y)
+    time_history.append(time_elapsed_indi)
 
 x_history = np.array(x_history)
 y_history = np.array(y_history)
+time_history = np.array(time_history)
 
-# for x in x_history:
-#     for t in x:
-#         print(t.shape) 
-# # print(y_history.shape)
 
 
 
@@ -246,8 +226,7 @@ for iterate in range(1):
     
 plt.legend()
 plt.tight_layout()
-plt.savefig("min_max_mean_q2", dpi = 500, format = 'png')
-# plt.show()
+plt.savefig("images/min_max_mean_q2.png", dpi = 500, format = 'png')
 
 from matplotlib import animation
 import matplotlib.pyplot as plt
@@ -261,8 +240,7 @@ ax.set_xlabel("x")
 ax.set_ylabel("f(x)")
 ax.legend()
 fig.tight_layout()
-plt.savefig("Evalute_best_point_q2", dpi = 500, format = 'png')
-# plt.show()
+plt.savefig("images/Evalute_best_point_q2.png", dpi = 500, format = 'png')
 
 
 fig = plt.figure()
@@ -279,28 +257,8 @@ ax.set_xlabel("Number of Generation")
 ax.set_ylabel("Best Point")
 ax.legend()
 fig.tight_layout()
-plt.savefig("point_trajectory_q2", dpi = 500, format = 'png')
+plt.savefig("images/point_trajectory_q2.png", dpi = 500, format = 'png')
 
-
-
-
-# line, = ax.plot([], [], ".k", markersize = 10)
-# time_text = ax.text(0.05, 0.95,'',horizontalalignment='left',verticalalignment='top', transform=ax.transAxes)
-
-
-
-# def animate(i):
-#     print(i)
-#     x = x_history[0,i,:]
-#     y = y_history[0,i,:]
-#     line.set_data(x, y)
-#     time_text.set_text("Generation {}".format(i))
-#     return line, [time_text,],
-
-
-# anim = animation.FuncAnimation(fig, animate, frames=num_generations, interval=201, blit=False)
-# # ax.legend()
-# plt.show()
-
-print(x_history[0,-1,:])
-print(y_history[0,-1,:])
+import pickle
+with open("data/question_2.pickle", "wb") as output_file:
+    pickle.dump((x_history, y_history, time_history), output_file)
