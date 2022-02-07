@@ -211,7 +211,7 @@ for j in range(50):
     seed = 123 + j
     print(seed)
     initial_pop_size = 10
-    num_generations = 100
+    num_generations = 200
 
     options = ga_options(accuracy, bounds, objective_function, initial_pop_size, seed)
 

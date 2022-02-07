@@ -188,17 +188,17 @@ y_history = []
 time_history = []
 num_runs = 1
 for j in range(50):
-    seed = 123 + j
+    seed = 123 + j 
     print(seed)
     bounds = (-0.5,1)
     accuracy = 5
     
     initial_pop_size = 10
-    num_generations = 100
+    num_generations = 200
 
     options = ga_options(accuracy, bounds, objective_function, initial_pop_size, seed)
 
-    reproduce_options = {"crossover_probablity":0, "prob_elite_children":0.4, "mutation_probablity":0.3, "mutation_noise_mean":0, "mutation_noise_std":0.5}
+    reproduce_options = {"crossover_probablity":0, "prob_elite_children":0.4, "mutation_probablity":0.3, "mutation_noise_mean":0, "mutation_noise_std":0.05}
 
     selection_algorithm_options = {"type":"tournament", "num_players":2, "number_of_offsprings":initial_pop_size, "replace":True}
 
@@ -259,6 +259,30 @@ ax.legend()
 fig.tight_layout()
 plt.savefig("images/point_trajectory_q2.png", dpi = 500, format = 'png')
 
+# from matplotlib import animation
+# import matplotlib.pyplot as plt
+# fig = plt.figure()
+# ax = plt.axes(xlim=(-0.5,1.), ylim=(-0.25, 2))
+# x = np.linspace(-0.5,1,10000)
+# y = objective_function(x)
+# line_1, = ax.plot(x,y)
+# line, = ax.plot([], [], ".k", markersize = 10)
+# time_text = ax.text(0.05, 0.95,'',horizontalalignment='left',verticalalignment='top', transform=ax.transAxes)
+
+# print(x_history[0,1,:])
+
+# def animate(i):
+#     x = x_history[0,i,:]
+#     y = y_history[0,i,:]
+#     line.set_data(x, y)
+#     time_text.set_text("Generation {}".format(i))
+#     return line, [time_text,],
+
+
+# anim = animation.FuncAnimation(fig, animate, frames=num_generations, interval=200, blit=False)
+# # ax.legend()
+# plt.show()
+
 import pickle
-with open("data/question_2.pickle", "wb") as output_file:
+with open("data/question_2_noise0_5.pickle", "wb") as output_file:
     pickle.dump((x_history, y_history, time_history), output_file)
