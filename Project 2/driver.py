@@ -1,6 +1,9 @@
+from audioop import cross
+from dataclasses import replace
 import enum
 from unicodedata import name
 import numpy as np
+from numpy.random import default_rng
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import itertools
@@ -51,7 +54,10 @@ class NonDominatedSorting:
 
         for iterate_1 in range(len(population.population)):
             for iterate_2 in range(len(population.population)):
-                
+                # print("********")
+                # print(population.population[iterate_1].serial_number)
+                # print(population.population[iterate_2].serial_number)
+                # print("********")
                 if self.dominates(population.population[iterate_1].corres_eval, 
                                     population.population[iterate_2].corres_eval):
 
@@ -67,14 +73,18 @@ class NonDominatedSorting:
             if population.population[iterate_1].n == 0:
                 population.population[iterate_1].rank = 1
                 frontier.add(population.population[iterate_1].serial_number)
-
+            # print(population.population[iterate_1].S)
         all_frontiers = [frontier]
         iterate = 0
         while not len(all_frontiers[iterate].points_in_frontier)==0:
             Q = []
             for p_id in all_frontiers[iterate].points_in_frontier:
                 point_p, index_p = population.fetch_by_serial_number(p_id)
+                # print(list([point_p.S]))
                 for q_id in list(point_p.S):
+                    # print("Hh")
+                    # print(q_id)
+                    # print([iterate.serial_number for iterate in population.population])
                     point_q, index_q = population.fetch_by_serial_number(q_id)
                     population.population[index_q].n -= 1
                     if population.population[index_q].n == 0:
@@ -129,10 +139,6 @@ class NonDominatedSorting:
 
     def dominates(self, p, q):
         comparison = p < q
-        # print(comparison)
-        # print(comparison)
-        # print(np.all(comparison))
-        # print("*******")
         if np.all(comparison):
             return True
         else:
@@ -158,8 +164,9 @@ class SolutionVecPropsFactory:
 
 class Population:
     def __init__(self, population_size, num_variables, bounds, 
-                    objectives, defined_pop = [], generate = True):
-
+                    objectives, seed, defined_pop = [], generate = True):
+        self.seed = seed
+        self.rng = default_rng(seed)
         self.population_size = population_size
         self.num_objectives = len(objectives.objectives)
         self.num_variables = num_variables
@@ -167,19 +174,13 @@ class Population:
         self.objectives = objectives
         if generate == True:
             sol_vectors = self.generate_random_legal_population()
-            # sol_vectors = np.array([[0.913, 2.181],
-            #                         [0.599, 2.450],
-            #                         [0.139, 1.157],
-            #                         [0.867, 1.505],
-            #                         [0.885, 1.239],
-            #                         [0.658, 2.040],
-            #                         [0.788, 2.166],
-            #                         [0.342, 0.756]])
 
             evaluations = self.evaluate_objectives(sol_vectors)
             self.population = self.generate_population(sol_vectors, evaluations)
         else:
-            self.population = defined_pop
+            sol_vectors = defined_pop
+            evaluations = self.evaluate_objectives(sol_vectors)
+            self.population = self.generate_population(sol_vectors, evaluations)
 
 
     def get_all_sol_vecs(self):
@@ -206,7 +207,7 @@ class Population:
         
 
     def generate_random_legal_population(self):
-        population = np.random.rand(self.population_size, self.num_variables)
+        population = self.rng.random((self.population_size, self.num_variables))
         for iterate in range(self.num_variables):
             lower_b = self.bounds[iterate][0]
             upper_b = self.bounds[iterate][1]
@@ -256,9 +257,142 @@ class Population:
         # population = self.population
         return self.objectives.evaluate(sol_vectors)
 
+    def thanos_kill_move(self):
+        ranks = np.array([iterate.rank for iterate in self.population])
+        rank_sort_indices = np.argsort(ranks)
+        sol_vec = self.get_all_sol_vecs()
+        new_sol_vec = []
+        for iterate in range(self.population_size):
+            new_sol_vec.append(sol_vec[rank_sort_indices[iterate],:])
+        
+        return Population(self.population_size, self.num_variables,
+                            self.bounds, self.objectives, self.seed+3,
+                            np.array(new_sol_vec), False)
+
+
+
     
+class GARoutine:
+    def __init__(self, population, seed) -> None:
+        self.rng = default_rng(seed)
 
+        self.sol_vec = population.get_all_sol_vecs()
+        self.crowding_distance = np.array(
+                            [iterate.d for iterate in population.population]
+                        )
+        self.rank = np.array(
+                            [iterate.rank for iterate in population.population]
+                        )
+        self.size = len(population.population)
+        # print(self.sol_vec)
+        # print(self.crowding_distance)
+        # print(self.rank)
 
+    def crowded_binary_tournament_selection(self, withReplacement = False):
+        # print(self.size)
+        size = self.size
+        chosen = []
+        for _ in range(2):
+            
+            tournament_draw = self.rng.choice(size, size = size, replace = withReplacement)
+            # print(tournament_draw)
+            if size % 2 == 0:
+                for iterate in range(0, size, 2):
+                    chosen.append(self.choose(tournament_draw[iterate], tournament_draw[iterate+1]))
+                
+            else:
+                raise ValueError("Population Size should be Even integer.")
+        # print(chosen)
+        winners = []
+        for i in chosen:
+            winners.append(self.sol_vec[i, :])
+
+        return np.array(winners)
+
+    def choose(self, parent_1_index, parent_2_index):
+        
+        if self.rank[parent_1_index] != self.rank[parent_2_index]:
+            rank_p1 = self.rank[parent_1_index]
+            rank_p2 = self.rank[parent_2_index]
+            return parent_1_index if rank_p1 < rank_p2 else parent_2_index
+        elif self.crowding_distance[parent_1_index] != self.crowding_distance[parent_2_index]:
+            cd_p1 = self.crowding_distance[parent_1_index]
+            cd_p2 = self.crowding_distance[parent_2_index]
+            return parent_1_index if cd_p1 < cd_p2 else parent_2_index
+        else:
+            toss = self.rng.random()
+            return parent_1_index if toss < 0.5 else parent_2_index
+
+    def sbx_crossover_operator(self, sol_vec, crossover_prob, p_curve_param, withReplacement = False):
+        crossover_couples = self.rng.choice(self.size, size = self.size, replace = withReplacement)
+        offsprings = []
+        beta = self.calculate_beta(p_curve_param)
+        if self.size%2 == 0:
+            for iterate in range(0, self.size, 2):
+                offspring_1, offspring_2 = self.generate_offspring_from_SBX(sol_vec, crossover_couples[iterate],
+                                                    crossover_couples[iterate + 1],
+                                                    crossover_prob, beta)
+                offsprings.append(offspring_1)
+                offsprings.append(offspring_2)                                
+        else: 
+            raise ValueError("Population Size should be Even integer.")
+        
+        return np.array(offsprings)
+                                                                                                                 
+
+    def generate_offspring_from_SBX(self, sol_vec, p1_index, p2_index, crossover_prob, beta):
+        biased_toss = self.rng.random()
+        if biased_toss <= crossover_prob:
+            p1 = sol_vec[p1_index,:]
+            p2 = sol_vec[p2_index, :]
+            child_1 = 0.5 * (p1 + p2) - beta*(p2-p1)
+            child_2 = 0.5 * (p1 + p2) + beta*(p2-p1)
+            offsprings_1 = child_1
+            offsprings_2 = child_2
+        else:
+            offsprings_1 = sol_vec[p1_index,:]
+            offsprings_2 = sol_vec[p2_index,:]
+
+        return offsprings_1, offsprings_2
+
+    def calculate_beta(self, p_curve_param):
+        toss = self.rng.random()
+        if toss <= 0.5:
+            beta = (2*toss)**(1/(p_curve_param + 1))
+        else: 
+            beta = (1/(2*(1-toss)))**(1/(p_curve_param + 1)) 
+        
+        return beta
+
+    def polynomial_mutation_operator(self, sol_vec, bounds, mutation_prob, p_curve_param_mutation):
+        offsprings = []
+
+        bound_length = []
+        for b in bounds:
+            bound_length.append(b[1] - b[0])
+        bound_length = np.array(bound_length)
+        delta_bar = self.calculate_delta_bar(p_curve_param_mutation)
+
+        for iterate in range(self.size):
+            biased_toss = self.rng.random()
+
+            if biased_toss <= mutation_prob:
+                mut_offspring = sol_vec[iterate,:] + (bound_length) * delta_bar
+                offsprings.append(mut_offspring)
+            else:
+                offsprings.append(sol_vec[iterate,:])
+
+        return np.array(offsprings)
+                                                                                                                 
+
+    def calculate_delta_bar(self, p_curve_param):
+        toss = self.rng.random()
+        if toss <= 0.5:
+            delta_bar = ((2*toss)**(1/(p_curve_param + 1))) - 1
+        else: 
+            delta_bar = 1 - ((2*(1-toss))**(1/(p_curve_param + 1))) 
+        
+        return delta_bar
 
 def obj_1(pop):
     x = pop[:, 0]
@@ -281,32 +415,35 @@ objectives_list = [objective_1, objective_2]
 
 objectives = Objectives(objectives_list)
 
-            
-pop = Population(8, 2, [[0,1],[0,3]], objectives)
+crossover_prob = 0.7
+p_curve_param = 0.6
+mutation_prob = 0.5
+p_curve_param_mutation = 0.5
+population_size = 20
+num_variables = 2
+bounds = [[0,1],[0,3]]
+seed = 1234
 
-# pop2 = Population(10, 2, [[0,1],[0,3]], objectives)
-print([iterate.serial_number for iterate in pop.population])
-# print([iterate.serial_number for iterate in pop2.population])
+pop = Population(population_size, num_variables, bounds, objectives, seed)
+pop.plotPopulationwithFrontier()
 
-# print(pop.evaluations)
-fds = NonDominatedSorting(pop)
-print([x.points_in_frontier for x in fds.all_frontiers])
-print([iterate.rank for iterate in pop.population])
-print([iterate.frontier for iterate in pop.population])
-print("**")
-# fds.crowding_distance(pop)
-fds2 = NonDominatedSorting(pop)
-print([x.points_in_frontier for x in fds2.all_frontiers])
-print([iterate.rank for iterate in pop.population])
-print([iterate.frontier for iterate in pop.population])
-# print([iterate.rank for iterate in pop.population])
-# print([iterate.d for iterate in pop.population])
-# print(pop.get_all_sol_vecs())
-# print(pop.get_all_evals())
+for g in range(0,100):
+    fds = NonDominatedSorting(pop)
+    fds.crowding_distance(pop)
 
-# pop.plotPopulationwithFrontier()
+    ga = GARoutine(pop, seed + 1)
+    sel_pop = ga.crowded_binary_tournament_selection()
+    crossover_offsprings = ga.sbx_crossover_operator(sel_pop, crossover_prob, p_curve_param)
+    mut_offspring = ga.polynomial_mutation_operator(crossover_offsprings, pop.bounds, mutation_prob, p_curve_param_mutation)
 
+    new_sol_vecs = np.vstack((ga.sol_vec, mut_offspring))
 
-# print([iterate.serial_number for iterate in pop.population])
-# pop.plotPopulation()
+    temp_extended_pop = Population(population_size, num_variables, bounds, objectives, seed + 2, new_sol_vecs, False)
+    fds = NonDominatedSorting(temp_extended_pop)
+    fds.crowding_distance(temp_extended_pop)
+    new_pop = temp_extended_pop.thanos_kill_move()
+    fds = NonDominatedSorting(new_pop)
+    fds.crowding_distance(new_pop)
+    pop = new_pop
 
+pop.plotPopulationwithFrontier()
