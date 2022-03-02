@@ -26,9 +26,10 @@ class Objectives:
 
 
 class Frontiers:
-    class_id = next(itertools.count(1,1))
+    class_id = itertools.count(1,1)
     def __init__(self):
-        self.frontier_id = self.class_id
+        self.frontier_id = next(self.class_id)
+        print("This id is {}".format(self.frontier_id))
         self.points_in_frontier = []
         
 
@@ -69,9 +70,16 @@ class NonDominatedSorting:
                     point_q, index_q = population.fetch_by_serial_number(q_id)
                     population.population[index_q].n -= 1
                     if population.population[index_q].n == 0:
-                        population.population[index_q].rank += 1
+                        print(population.population[index_q].rank)
+                        population.population[index_q].rank = iterate + 2
+                        print(population.population[index_q].rank)
                         Q.append(q_id)
             
+            for x in all_frontiers[iterate].points_in_frontier:
+                _, index = population.fetch_by_serial_number(x)
+                
+                population.population[index].frontier = all_frontiers[iterate].frontier_id
+
             iterate += 1
             # print("Length Q = {}".format(len(Q)))
             
@@ -82,6 +90,34 @@ class NonDominatedSorting:
             all_frontiers.append(next_frontier)
 
         self.all_frontiers = all_frontiers[:-1]
+
+    def crowding_distance(self, population):
+        for _, frontiers in enumerate(self.all_frontiers):
+            cardinality_r = len(frontiers.points_in_frontier)
+            evaluations = []
+            sr_num = []
+            for iterate in frontiers.points_in_frontier:
+                point,_ = population.fetch_by_serial_number(iterate)
+                evaluations.append(point.corres_eval)
+                sr_num.append(point.serial_number)
+            evaluations = np.array(evaluations)
+            sr_num = np.array(sr_num)
+            for objective_num in range(population.num_objectives):
+                sort_indices = np.argsort(evaluations[:,objective_num])
+                print(sort_indices)
+                evaluations = evaluations[sort_indices, :]
+                sr_num = sr_num[sort_indices]
+                print(sr_num)
+                _, first_index = population.fetch_by_serial_number(sr_num[0])
+                _, last_index = population.fetch_by_serial_number(sr_num[-1])
+                population.population[first_index].d = float("inf")
+                population.population[last_index].d = float("inf")
+
+                for i in range(1, cardinality_r-1):
+                    _, index = population.fetch_by_serial_number(sr_num[i])
+                    population.population[index].d += (abs(
+                                            evaluations[i+1,objective_num] - evaluations[i-1,objective_num]
+                                        )) / (evaluations[-1, objective_num] - evaluations[0, objective_num])
 
     def dominates(self, p, q):
         comparison = p < q
@@ -103,25 +139,30 @@ class SolutionVecProps:
         self.corres_eval = corres_eval
         self.S = set()
         self.n = 0
+        self.d = 0
+        self.frontier = -1
+
+
 
 class Population:
     def __init__(self, population_size, num_variables, bounds, 
                     objectives, defined_pop = [], generate = True):
 
         self.population_size = population_size
+        self.num_objectives = len(objectives.objectives)
         self.num_variables = num_variables
         self.bounds = bounds
         self.objectives = objectives
         if generate == True:
-            sol_vectors = self.generate_random_legal_population()
-            # sol_vectors = np.array([[0.913, 2.181],
-            #                         [0.599, 2.450],
-            #                         [0.139, 1.157],
-            #                         [0.867, 1.505],
-            #                         [0.885, 1.239],
-            #                         [0.658, 2.040],
-            #                         [0.788, 2.166],
-            #                         [0.342, 0.756]])
+            # sol_vectors = self.generate_random_legal_population()
+            sol_vectors = np.array([[0.913, 2.181],
+                                    [0.599, 2.450],
+                                    [0.139, 1.157],
+                                    [0.867, 1.505],
+                                    [0.885, 1.239],
+                                    [0.658, 2.040],
+                                    [0.788, 2.166],
+                                    [0.342, 0.756]])
 
             evaluations = self.evaluate_objectives(sol_vectors)
             self.population = self.generate_population(sol_vectors, evaluations)
@@ -228,11 +269,19 @@ objectives_list = [objective_1, objective_2]
 objectives = Objectives(objectives_list)
 
             
-pop = Population(1000, 2, [[0,1],[0,3]], objectives)
+pop = Population(8, 2, [[0,1],[0,3]], objectives)
 
+pop2 = Population(10, 2, [[0,1],[0,3]], objectives)
+print([iterate.serial_number for iterate in pop.population])
+print([iterate.serial_number for iterate in pop2.population])
 
 # print(pop.evaluations)
-# pop.fast_non_dominated_sorting()
+# fds = NonDominatedSorting(pop)
+# fds.crowding_distance(pop)
+
+# print([iterate.frontier for iterate in pop.population])
+# print([iterate.rank for iterate in pop.population])
+# print([iterate.d for iterate in pop.population])
 # print(pop.get_all_sol_vecs())
 # print(pop.get_all_evals())
 
