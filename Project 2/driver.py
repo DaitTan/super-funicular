@@ -26,21 +26,29 @@ class Objectives:
 
 
 class Frontiers:
-    class_id = itertools.count(1,1)
-    def __init__(self):
-        self.frontier_id = next(self.class_id)
-        print("This id is {}".format(self.frontier_id))
+    # class_id = itertools.count(1,1)
+    def __init__(self, index):
+        self.frontier_id = index
         self.points_in_frontier = []
         
 
     def add(self, serial_number):
         self.points_in_frontier.append(serial_number)
 
+
+class FrontiersFactory:
+    def __init__(self) -> None:
+        self.counter = itertools.count(1,1)
+    def create(self):
+        index = next(self.counter)
+        return Frontiers(index)
+
 class NonDominatedSorting:
     def __init__(self, population):
         self.points_frontier_class = []
-        frontier = Frontiers()
-        
+        frontier_factory = FrontiersFactory()
+        frontier = frontier_factory.create()
+
         for iterate_1 in range(len(population.population)):
             for iterate_2 in range(len(population.population)):
                 
@@ -70,9 +78,9 @@ class NonDominatedSorting:
                     point_q, index_q = population.fetch_by_serial_number(q_id)
                     population.population[index_q].n -= 1
                     if population.population[index_q].n == 0:
-                        print(population.population[index_q].rank)
+                        # print(population.population[index_q].rank)
                         population.population[index_q].rank = iterate + 2
-                        print(population.population[index_q].rank)
+                        # print(population.population[index_q].rank)
                         Q.append(q_id)
             
             for x in all_frontiers[iterate].points_in_frontier:
@@ -83,7 +91,7 @@ class NonDominatedSorting:
             iterate += 1
             # print("Length Q = {}".format(len(Q)))
             
-            next_frontier = Frontiers()
+            next_frontier = frontier_factory.create()
             for id in Q:
                 next_frontier.add(id)
             
@@ -104,10 +112,10 @@ class NonDominatedSorting:
             sr_num = np.array(sr_num)
             for objective_num in range(population.num_objectives):
                 sort_indices = np.argsort(evaluations[:,objective_num])
-                print(sort_indices)
+                # print(sort_indices)
                 evaluations = evaluations[sort_indices, :]
                 sr_num = sr_num[sort_indices]
-                print(sr_num)
+                # print(sr_num)
                 _, first_index = population.fetch_by_serial_number(sr_num[0])
                 _, last_index = population.fetch_by_serial_number(sr_num[-1])
                 population.population[first_index].d = float("inf")
@@ -131,9 +139,8 @@ class NonDominatedSorting:
             return False
 
 class SolutionVecProps:
-    class_id = itertools.count()
-    def __init__(self, sol_vec, corres_eval):
-        self.serial_number = next(self.class_id)
+    def __init__(self, sol_vec, corres_eval, index):
+        self.serial_number = index
         self.rank = 0
         self.sol_vec = sol_vec
         self.corres_eval = corres_eval
@@ -142,7 +149,12 @@ class SolutionVecProps:
         self.d = 0
         self.frontier = -1
 
-
+class SolutionVecPropsFactory:
+    def __init__(self) -> None:
+        self.counter = itertools.count()
+    def create(self, sol_vec, corres_eval):
+        index = next(self.counter)
+        return SolutionVecProps(sol_vec, corres_eval, index)
 
 class Population:
     def __init__(self, population_size, num_variables, bounds, 
@@ -154,15 +166,15 @@ class Population:
         self.bounds = bounds
         self.objectives = objectives
         if generate == True:
-            # sol_vectors = self.generate_random_legal_population()
-            sol_vectors = np.array([[0.913, 2.181],
-                                    [0.599, 2.450],
-                                    [0.139, 1.157],
-                                    [0.867, 1.505],
-                                    [0.885, 1.239],
-                                    [0.658, 2.040],
-                                    [0.788, 2.166],
-                                    [0.342, 0.756]])
+            sol_vectors = self.generate_random_legal_population()
+            # sol_vectors = np.array([[0.913, 2.181],
+            #                         [0.599, 2.450],
+            #                         [0.139, 1.157],
+            #                         [0.867, 1.505],
+            #                         [0.885, 1.239],
+            #                         [0.658, 2.040],
+            #                         [0.788, 2.166],
+            #                         [0.342, 0.756]])
 
             evaluations = self.evaluate_objectives(sol_vectors)
             self.population = self.generate_population(sol_vectors, evaluations)
@@ -181,8 +193,9 @@ class Population:
 
     def generate_population(self, sol_vectors, evaluations):
         population = []
+        solVecProp = SolutionVecPropsFactory()
         for sol_vec, corres_eval in zip(sol_vectors, evaluations):
-            pointProp = SolutionVecProps(sol_vec, corres_eval)
+            pointProp = solVecProp.create(sol_vec, corres_eval)
             population.append(pointProp)
         return population
 
@@ -271,15 +284,21 @@ objectives = Objectives(objectives_list)
             
 pop = Population(8, 2, [[0,1],[0,3]], objectives)
 
-pop2 = Population(10, 2, [[0,1],[0,3]], objectives)
+# pop2 = Population(10, 2, [[0,1],[0,3]], objectives)
 print([iterate.serial_number for iterate in pop.population])
-print([iterate.serial_number for iterate in pop2.population])
+# print([iterate.serial_number for iterate in pop2.population])
 
 # print(pop.evaluations)
-# fds = NonDominatedSorting(pop)
+fds = NonDominatedSorting(pop)
+print([x.points_in_frontier for x in fds.all_frontiers])
+print([iterate.rank for iterate in pop.population])
+print([iterate.frontier for iterate in pop.population])
+print("**")
 # fds.crowding_distance(pop)
-
-# print([iterate.frontier for iterate in pop.population])
+fds2 = NonDominatedSorting(pop)
+print([x.points_in_frontier for x in fds2.all_frontiers])
+print([iterate.rank for iterate in pop.population])
+print([iterate.frontier for iterate in pop.population])
 # print([iterate.rank for iterate in pop.population])
 # print([iterate.d for iterate in pop.population])
 # print(pop.get_all_sol_vecs())
