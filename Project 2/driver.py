@@ -1,6 +1,7 @@
 from audioop import cross
 from dataclasses import replace
 import enum
+from operator import le
 from unicodedata import name
 import numpy as np
 from numpy.random import default_rng
@@ -93,10 +94,10 @@ class NonDominatedSorting:
                         # print(population.population[index_q].rank)
                         Q.append(q_id)
             
-            for x in all_frontiers[iterate].points_in_frontier:
-                _, index = population.fetch_by_serial_number(x)
+            # for x in all_frontiers[iterate].points_in_frontier:
+            #     _, index = population.fetch_by_serial_number(x)
                 
-                population.population[index].frontier = all_frontiers[iterate].frontier_id
+            #     population.population[index].frontier = all_frontiers[iterate].frontier_id
 
             iterate += 1
             # print("Length Q = {}".format(len(Q)))
@@ -123,20 +124,30 @@ class NonDominatedSorting:
             for objective_num in range(population.num_objectives):
                 sort_indices = np.argsort(evaluations[:,objective_num])
                 # print(sort_indices)
-                evaluations = evaluations[sort_indices, :]
-                sr_num = sr_num[sort_indices]
+                # print(evaluations)
+                evaluations_sub = evaluations[sort_indices, objective_num]
+                # print(objective_num)
+                # print(evaluations_sub)
                 # print(sr_num)
+                sr_num = sr_num[sort_indices]
+                
+                # print(sr_num)
+                # print(sr_num[0])
+                # print(sr_num[-1])
+                # print(f)
                 _, first_index = population.fetch_by_serial_number(sr_num[0])
                 _, last_index = population.fetch_by_serial_number(sr_num[-1])
-                population.population[first_index].d = float("inf")
-                population.population[last_index].d = float("inf")
+                population.population[first_index].d = 99999999
+                population.population[last_index].d = 99999999
 
                 for i in range(1, cardinality_r-1):
                     _, index = population.fetch_by_serial_number(sr_num[i])
                     population.population[index].d += (abs(
-                                            evaluations[i+1,objective_num] - evaluations[i-1,objective_num]
-                                        )) / (evaluations[-1, objective_num] - evaluations[0, objective_num])
-
+                                            evaluations_sub[i+1] - evaluations_sub[i-1]
+                                        )) / (evaluations_sub[cardinality_r-1] - evaluations_sub[0] + 1e-6)
+                    # print((evaluations_sub[cardinality_r-1], evaluations_sub[0]))
+                # print([iterate.d for iterate in population.population])
+                # print("*******************************")
     def dominates(self, p, q):
         comparison = p < q
         if np.all(comparison):
@@ -174,7 +185,14 @@ class Population:
         self.objectives = objectives
         if generate == True:
             sol_vectors = self.generate_random_legal_population()
-
+            # sol_vectors = np.array([[0.913, 2.181],
+            #                         [0.599, 2.450],
+            #                         [0.139, 1.157],
+            #                         [0.867, 1.505],
+            #                         [0.885, 1.239],
+            #                         [0.658, 2.040],
+            #                         [0.788, 2.166],
+            #                         [0.342, 0.756]])
             evaluations = self.evaluate_objectives(sol_vectors)
             self.population = self.generate_population(sol_vectors, evaluations)
         else:
@@ -231,6 +249,7 @@ class Population:
     def plotPopulationwithFrontier(self):
         fig = go.Figure()
         all_frontiers = NonDominatedSorting(self)
+        print(len(all_frontiers.all_frontiers))
         for rank, frontiers in enumerate(all_frontiers.all_frontiers):
             evaluations = []
             sr_num = []
@@ -243,6 +262,7 @@ class Population:
                     x = evaluations[:,0],
                     y = evaluations[:,1],
                 ))
+            print(df)
             point_caption = (["Point {}".format(i) for i in sr_num])
             fig.add_trace(go.Scatter(
             x = df.sort_values(by="x")["x"],
@@ -258,18 +278,110 @@ class Population:
         return self.objectives.evaluate(sol_vectors)
 
     def thanos_kill_move(self):
+        
         ranks = np.array([iterate.rank for iterate in self.population])
         rank_sort_indices = np.argsort(ranks)
+        ranks = ranks[rank_sort_indices]
         sol_vec = self.get_all_sol_vecs()
+        sol_vec = sol_vec[rank_sort_indices,:]
+
+        serial_num = np.array(self.get_all_serial_numbers())
+        serial_num = serial_num[rank_sort_indices]
+
+        unique_ranks = list(set(ranks))
+
         new_sol_vec = []
-        for iterate in range(self.population_size):
-            new_sol_vec.append(sol_vec[rank_sort_indices[iterate],:])
+        new_sol_vec_cum_sum = 0
+        for iterate in unique_ranks:
+            # print(iterate)
+            # print("did it terminate?")
+            lower_bound, upper_bound = self.find_bounds(ranks, iterate)
+            # print("Thank god, it did!")
+            new_sol_vec_cum_sum += (upper_bound-lower_bound+1)
+            # print(new_sol_vec_cum_sum)
+            # print(len(new_sol_vec))
+            if new_sol_vec_cum_sum < self.population_size:
+                
+                
+                # print(lower_bound, upper_bound)
+                # print(sol_vec[lower_bound:upper_bound+1, :].shape)
+                for j in range(lower_bound, upper_bound+1):  
+                    new_sol_vec.append(sol_vec[j,:])
+                # print("Entering if")
+                # print(len(new_sol_vec), new_sol_vec_cum_sum)
+                # print("**************")
+                    
+            else:
+                # print("**************")
+                # print("else part")
+                cd = []
+                new_sol_vec_subset = []
+                sr_no_subset = serial_num[lower_bound:upper_bound+1]
+                for iterate_1 in sr_no_subset:
+                    point,_ = self.fetch_by_serial_number(iterate_1)
+                    cd.append(point.d)
+                    new_sol_vec_subset.append(point.sol_vec.tolist())
+                cd = np.array(cd)
+                sorted_cd_indices = np.argsort(cd)[::-1]
+                new_sol_vec_subset = np.array(new_sol_vec_subset)
+                
+                left_to_choose = self.population_size - len(new_sol_vec)
+                # print(left_to_choose)
+                # print(len(sr_no_subset))
+                for iterate_2 in range(left_to_choose):
+                    new_sol_vec.append(new_sol_vec_subset[sorted_cd_indices[iterate_2],:])
+                # print(len(new_sol_vec) , self.population_size)
+                if (len(new_sol_vec) == self.population_size):
+                    break
+        #         print("**************")
+        # print("**************")
+        # print(new_sol_vec)
+            
+            
         
         return Population(self.population_size, self.num_variables,
                             self.bounds, self.objectives, self.seed+3,
                             np.array(new_sol_vec), False)
 
+    def find_bounds(self, ranks, target):
+        lower_bound = self.binarySearch(ranks, target,True)
+        upper_bound = self.binarySearch(ranks, target,False, lower_bound)
+        return lower_bound, upper_bound
+    
+    def find_upper_bound(self, ranks, target):
+        upper_bound = self.binarySearch(ranks, target,False)
+        return upper_bound
 
+    def binarySearch(self, inp, target, lowerBound, start = 0):
+        left = start
+        right = len(inp) - 1
+
+        while left <= right:
+            mid = (left + right) // 2
+            # print(left, mid, right)
+            # print(inp[left], inp[mid], inp[right])
+            if inp[mid] == target:
+                if inp[mid] == target:
+                    if lowerBound:
+                        if mid == 0:
+                            return mid
+                        elif inp[mid-1] != target:
+                            return mid
+                        else:
+                            right = mid
+                    else:
+                        if mid == len(inp)-1:
+                            return mid
+                        elif inp[mid+1] != target:
+                            return mid
+                        else:
+                            left = mid + 1
+
+            elif inp[mid] < target:
+                left = mid + 1
+
+            else:
+                right = mid - 1
 
     
 class GARoutine:
@@ -318,7 +430,7 @@ class GARoutine:
         elif self.crowding_distance[parent_1_index] != self.crowding_distance[parent_2_index]:
             cd_p1 = self.crowding_distance[parent_1_index]
             cd_p2 = self.crowding_distance[parent_2_index]
-            return parent_1_index if cd_p1 < cd_p2 else parent_2_index
+            return parent_1_index if cd_p1 > cd_p2 else parent_2_index
         else:
             toss = self.rng.random()
             return parent_1_index if toss < 0.5 else parent_2_index
@@ -345,8 +457,8 @@ class GARoutine:
         if biased_toss <= crossover_prob:
             p1 = sol_vec[p1_index,:]
             p2 = sol_vec[p2_index, :]
-            child_1 = 0.5 * (p1 + p2) - beta*(p2-p1)
-            child_2 = 0.5 * (p1 + p2) + beta*(p2-p1)
+            child_1 = 0.5 * ((p1 + p2) - beta*(p2-p1))
+            child_2 = 0.5 * ((p1 + p2) + beta*(p2-p1))
             offsprings_1 = child_1
             offsprings_2 = child_2
         else:
@@ -399,9 +511,28 @@ def obj_1(pop):
     return x
 
 def obj_2(pop):
-    x = pop[:,0]
-    y = pop[:,1]
-    return 1 + y - x**2
+    y = pop[:,1:]
+    g = 1 + (9/29) * (np.sum(y,1))
+    h = 1 - (pop[:,0]/g)**2
+
+    return g*h
+
+# def obj_1(pop):
+#     x = pop[:, 0]
+#     return x**2
+
+# def obj_2(pop):
+#     x = pop[:, 0]
+#     return (x-2)**2
+
+# def obj_1(pop):
+#     x = pop[:, 0]
+#     return x
+
+# def obj_2(pop):
+#     x = pop[:,0]
+#     y = pop[:,1]
+#     return 1 + y - x**2
 
 objective_1 = {}
 objective_1["type"] = "Minimize"
@@ -415,22 +546,29 @@ objectives_list = [objective_1, objective_2]
 
 objectives = Objectives(objectives_list)
 
-crossover_prob = 0.7
-p_curve_param = 0.6
-mutation_prob = 0.5
-p_curve_param_mutation = 0.5
-population_size = 20
-num_variables = 2
-bounds = [[0,1],[0,3]]
-seed = 1234
+
+population_size = 200
+num_variables = 30
+bounds = [[0,1]]*30
+# print(bounds)
+seed = 12345
+
+crossover_prob = 0.9
+mutation_prob = 1/30
+
+p_curve_param = 20
+p_curve_param_mutation = 20
+
 
 pop = Population(population_size, num_variables, bounds, objectives, seed)
 pop.plotPopulationwithFrontier()
 
-for g in range(0,100):
+for g in range(0,250):
+    print("Generation {}".format(g))
+    print([iterate.rank for iterate in pop.population])
     fds = NonDominatedSorting(pop)
     fds.crowding_distance(pop)
-
+    print("Begining GA Routine")
     ga = GARoutine(pop, seed + 1)
     sel_pop = ga.crowded_binary_tournament_selection()
     crossover_offsprings = ga.sbx_crossover_operator(sel_pop, crossover_prob, p_curve_param)
@@ -441,9 +579,12 @@ for g in range(0,100):
     temp_extended_pop = Population(population_size, num_variables, bounds, objectives, seed + 2, new_sol_vecs, False)
     fds = NonDominatedSorting(temp_extended_pop)
     fds.crowding_distance(temp_extended_pop)
+    print("Ending GA Routine")
+    print("Begining kill")
     new_pop = temp_extended_pop.thanos_kill_move()
     fds = NonDominatedSorting(new_pop)
     fds.crowding_distance(new_pop)
     pop = new_pop
+    print("******")
 
 pop.plotPopulationwithFrontier()
