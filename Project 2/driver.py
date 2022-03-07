@@ -140,8 +140,8 @@ class NonDominatedSorting:
                 # print(f)
                 _, first_index = population.fetch_by_serial_number(sr_num[0])
                 _, last_index = population.fetch_by_serial_number(sr_num[-1])
-                population.population[first_index].d = 1e16
-                population.population[last_index].d = 1e16
+                population.population[first_index].d = float('inf')
+                population.population[last_index].d = float('inf')
                 low_val = min(all_eval[:, objective_num])
                 high_val = max(all_eval[:, objective_num])
                 # print(low_val, high_val)
@@ -153,11 +153,11 @@ class NonDominatedSorting:
                     # index_high_d, _ = population.fetch_by_serial_number(sr_num[i+1])
                     # population.population[index_mid].d += ((
                     #                         index_high_d.d - index_low_d.d
-                    #                     )) / (high_val - low_val + 1e-6)
+                    #                     )) / (high_val - low_val + 1e-30)
                     
                     population.population[index_mid].d += (abs(
                                             sub_evaluations[i+1] - sub_evaluations[i-1]
-                                        )) / (high_val - low_val + 1e-12)
+                                        )) / (high_val - low_val + 1e-30)
                     # print((evaluations_sub[cardinality_r-1], evaluations_sub[0]))
                 # print([iterate.d for iterate in population.population])
         # print(f)
@@ -255,7 +255,7 @@ class Population:
         fig.add_trace(go.Scatter(
             x = evaluations[:,0],
             y = evaluations[:,1],
-            mode = "markers",
+            mode = "markers+lines",
             text = point_caption
         ))
         fig.update_layout(
@@ -273,7 +273,6 @@ class Population:
             scaleanchor = "x",
             scaleratio = 1,
         )
-        fig.show()
         fig.show()
     
     def plotPopulationwithFrontier(self):
@@ -335,13 +334,16 @@ class Population:
         survivors = []
         for iterate in selected_indices:
             point, _ = self.fetch_by_serial_number(iterate)
+            
             survivors.append(point.sol_vec)
         
         survivors = np.array(survivors)
         
+        
         return Population(self.population_size, self.num_variables,
                             self.bounds, self.objectives, self.seed+3,
                             survivors, False)
+
 
     def find_bounds(self, ranks, target):
         lower_bound = self.binarySearch(ranks, target,True)
@@ -438,12 +440,12 @@ class GARoutine:
     def sbx_crossover_operator(self, sol_vec, crossover_prob, p_curve_param, withReplacement = False):
         crossover_couples = self.rng.choice(self.size, size = self.size, replace = withReplacement)
         offsprings = []
-        beta = self.calculate_beta(p_curve_param)
+        
         if self.size%2 == 0:
             for iterate in range(0, self.size, 2):
                 offspring_1, offspring_2 = self.generate_offspring_from_SBX(sol_vec, crossover_couples[iterate],
                                                     crossover_couples[iterate + 1],
-                                                    crossover_prob, beta)
+                                                    p_curve_param, crossover_prob)
                 offsprings.append(offspring_1)
                 offsprings.append(offspring_2)                                
         else: 
@@ -452,13 +454,14 @@ class GARoutine:
         return np.array(offsprings)
                                                                                                                  
 
-    def generate_offspring_from_SBX(self, sol_vec, p1_index, p2_index, crossover_prob, beta):
+    def generate_offspring_from_SBX(self, sol_vec, p1_index, p2_index, p_curve_param, crossover_prob):
         biased_toss = self.rng.random()
         if biased_toss <= crossover_prob:
+            beta = self.calculate_beta(p_curve_param, biased_toss)
             # print("Crossover Took Place: {}, {}".format(biased_toss, crossover_prob))
             p1 = sol_vec[p1_index,:]
             p2 = sol_vec[p2_index, :]
-            child_1 = 0.5 * ((p1 + p2) - beta*(p2-p1))
+            child_1 = 0.5 * ((p1 + p2) - beta*(p1-p2))
             child_2 = 0.5 * ((p1 + p2) + beta*(p2-p1))
             offsprings_1 = child_1
             offsprings_2 = child_2
@@ -468,8 +471,8 @@ class GARoutine:
 
         return offsprings_1, offsprings_2
 
-    def calculate_beta(self, p_curve_param):
-        toss = self.rng.random()
+    def calculate_beta(self, p_curve_param, toss):
+        # toss = self.rng.random()
         if toss <= 0.5:
             beta = (2*toss)**(1/(p_curve_param + 1))
         else: 
@@ -484,23 +487,30 @@ class GARoutine:
         for b in bounds:
             bound_length.append(b[1] - b[0])
         bound_length = np.array(bound_length)
-        delta_bar = self.calculate_delta_bar(p_curve_param_mutation)
-
+        
+# future edit needed here
         for iterate in range(self.size):
             biased_toss = self.rng.random()
-
+            
             if biased_toss <= mutation_prob:
-                # print("Mutation Took Place: {}, {}".format(biased_toss, mutation_prob))
-                mut_offspring = sol_vec[iterate,:] + ((bound_length) * delta_bar)
+                delta_bar = self.calculate_delta_bar(p_curve_param_mutation, biased_toss)
+                mut_offspring = []
+                gene = sol_vec[iterate,:] + ((bound_length[1]-bound_length[0]) * delta_bar)
+                for iterate_2, b in bounds:
+                    
+                    if gen < b[]
+                    mut_offspring = 
+
                 offsprings.append(mut_offspring)
             else:
                 offsprings.append(sol_vec[iterate,:])
+        
 
         return np.array(offsprings)
                                                                                                                  
 
-    def calculate_delta_bar(self, p_curve_param):
-        toss = self.rng.random()
+    def calculate_delta_bar(self, p_curve_param, toss):
+        # toss = self.rng.random()
         if toss <= 0.5:
             delta_bar = ((2*toss)**(1/(p_curve_param + 1))) - 1
         else: 
@@ -521,11 +531,14 @@ class GARoutine:
 
 def obj_1(pop):
     x = pop[:, 0]
+
     return x**2
 
 def obj_2(pop):
     x = pop[:, 0]
-    return (x-2)**2
+    return x**2
+
+
 
 # def obj_1(pop):
 #     x = pop[:, 0]
@@ -544,22 +557,23 @@ objective_2 = {}
 objective_2["type"] = "Minimize"
 objective_2["function"] = obj_2
 
+
 objectives_list = [objective_1, objective_2]
 
 objectives = Objectives(objectives_list)
 
 
-population_size = 200
+population_size = 150
 num_variables = 1
-bounds = [[-1000, 1000]]
+bounds = [[-55,55]]*1
 # print(bounds)
 seed = 123456
 rng = default_rng(seed)
-crossover_prob = 0.7
-mutation_prob = 0.05
+crossover_prob = 0.9
+mutation_prob = 0.1
 
-p_curve_param = 20
-p_curve_param_mutation = 20
+p_curve_param = 2
+p_curve_param_mutation = 5
 
 
 pop = Population(population_size, num_variables, bounds, objectives, rng.integers(1e16))
@@ -569,7 +583,7 @@ history = []
 import plotly.graph_objects as go
 
 df = pd.DataFrame(columns=['Generation', 'Rank', 'x', 'y'])
-num_generations = 100
+num_generations = 50
 for g in range(0,num_generations):
     # gen_seed = rng.randint(0,10000000)
 
@@ -597,7 +611,7 @@ for g in range(0,num_generations):
     fds.crowding_distance(new_pop)
     pop = new_pop
     print("******")
-    
+    print(pop.get_all_sol_vecs())
     for iterate in pop.population:
         df = df.append({'Generation' : g, 
                         'Rank':  iterate.rank, 'x': iterate.corres_eval[0], 'y': iterate.corres_eval[1]}, ignore_index=True)
