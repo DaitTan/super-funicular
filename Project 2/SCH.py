@@ -68,7 +68,7 @@ p_curve_param = 20
 p_curve_param_mutation = 20
 
 num_generations = 100
-num_runs = 10
+num_runs = 1
 
 
 
@@ -115,6 +115,6 @@ for run in tqdm(range(num_runs)):
 
         file_name = obj_name + "_Gen_" + str(generation) + "_Run_" + str(run) +".pkl"
         f = open(run_folder.joinpath(file_name), "wb")
-        pickle.dump(pop,f)
+        pickle.dump(pop.get_all_sol_vecs(),f)
         f.close()
 

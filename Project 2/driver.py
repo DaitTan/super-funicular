@@ -408,6 +408,7 @@ class GARoutine:
                             [iterate.rank for iterate in population.population]
                         )
         self.size = len(population.population)
+        self.bounds = population.bounds
         # print(self.sol_vec)
         # print(self.crowding_distance)
         # print(self.rank)
@@ -476,8 +477,24 @@ class GARoutine:
             # print(child_1)
             # print(child_2)
             # print(f)
+
             offsprings_1 = child_1
             offsprings_2 = child_2
+
+            for iterate in range(len(self.bounds)):
+                
+                if offsprings_1[iterate] < self.bounds[iterate][0] or offsprings_1[iterate] > self.bounds[iterate][1]:
+                    
+                    offsprings_1[iterate] = self.bounds[iterate][0] + self.rng.random() * (self.bounds[iterate][1]-self.bounds[iterate][0])
+            
+            
+            
+            for iterate in range(len(self.bounds)):
+                
+                if offsprings_2[iterate] < self.bounds[iterate][0] or offsprings_2[iterate] > self.bounds[iterate][1]:
+                    
+                    offsprings_2[iterate] = self.bounds[iterate][0] + self.rng.random() * (self.bounds[iterate][1]-self.bounds[iterate][0])
+            
         else:
             offsprings_1 = sol_vec[p1_index,:]
             offsprings_2 = sol_vec[p2_index,:]
@@ -510,7 +527,11 @@ class GARoutine:
                 # mut_offspring = []
                 # print(bound_length)
                 mut_offspring = sol_vec[iterate,:] + ((bound_length) * delta_bar)
+                for iterate in range(len(self.bounds)):
                 
+                    if mut_offspring[iterate] < self.bounds[iterate][0] or mut_offspring[iterate] > self.bounds[iterate][1]:
+                        
+                        mut_offspring[iterate] = self.bounds[iterate][0] + self.rng.random() * (self.bounds[iterate][1]-self.bounds[iterate][0])
                 # print(f)
                 # for iterate_2, b in bounds:
                     
