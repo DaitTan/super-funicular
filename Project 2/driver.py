@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import itertools
 import pandas as pd
+from tqdm import tqdm
+import plotly.graph_objects as go
+import pathlib
+import os
+import pickle
 
 class Objectives:
     def __init__(self, objectives):
@@ -133,22 +138,16 @@ class NonDominatedSorting:
                 sub_evaluations = sub_evaluations[sort_indices]
                 # print(sub_evaluations)
                 sr_num = sr_num[sort_indices]
-                
-                # print(sr_num)
-                # print(sr_num[0])
-                # print(sr_num[-1])
-                # print(f)
+
                 _, first_index = population.fetch_by_serial_number(sr_num[0])
                 _, last_index = population.fetch_by_serial_number(sr_num[-1])
+
                 population.population[first_index].d = float('inf')
                 population.population[last_index].d = float('inf')
                 low_val = min(all_eval[:, objective_num])
                 high_val = max(all_eval[:, objective_num])
-                # print(low_val, high_val)
-                # print(p1.corres_eval[objective_num], p2.corres_eval[objective_num])
-                # print("**")
                 for i in range(1, cardinality_r-1):
-                    # index_low_d,_ = population.fetch_by_serial_number(sr_num[i-1])
+                    
                     _, index_mid = population.fetch_by_serial_number(sr_num[i])
                     # index_high_d, _ = population.fetch_by_serial_number(sr_num[i+1])
                     # population.population[index_mid].d += ((
@@ -157,11 +156,11 @@ class NonDominatedSorting:
                     
                     population.population[index_mid].d += (abs(
                                             sub_evaluations[i+1] - sub_evaluations[i-1]
-                                        )) / (high_val - low_val + 1e-30)
+                                        )) / (high_val - low_val + 1e-60)
                     # print((evaluations_sub[cardinality_r-1], evaluations_sub[0]))
                 # print([iterate.d for iterate in population.population])
         # print(f)
-        print("*******************************")
+        # print("*******************************")
 
     def dominates(self, p, q):
         comparison = p < q
@@ -253,9 +252,9 @@ class Population:
         evaluations = self.get_all_evals()
         point_caption = (["Point {}".format(i) for i in self.get_all_serial_numbers()])
         fig.add_trace(go.Scatter(
-            x = evaluations[:,0],
-            y = evaluations[:,1],
-            mode = "markers+lines",
+            x = 1*evaluations[:,0],
+            y = 1*evaluations[:,1],
+            mode = "markers",
             text = point_caption
         ))
         fig.update_layout(
@@ -264,12 +263,12 @@ class Population:
             title = "fixed-ratio axes"
         )
         fig.update_yaxes(
-            range = [-1,5],
+            range = [-12, 2],
             scaleanchor = "x",
             scaleratio = 1,
         )
         fig.update_xaxes(
-            range = [-1,5],
+            range = [-20,-14],
             scaleanchor = "x",
             scaleratio = 1,
         )
@@ -288,8 +287,8 @@ class Population:
                 sr_num.append(point.serial_number)
             evaluations = np.array(evaluations)
             df = pd.DataFrame(dict(
-                    x = evaluations[:,0],
-                    y = evaluations[:,1],
+                    x = 1*evaluations[:,0],
+                    y = 1*evaluations[:,1],
                 ))
             print(df)
             point_caption = (["Point {}".format(i) for i in sr_num])
@@ -307,12 +306,12 @@ class Population:
             title = "fixed-ratio axes"
         )
         fig.update_yaxes(
-            range = [-1,5],
+            range = [-12, 2],
             scaleanchor = "x",
             scaleratio = 1,
         )
         fig.update_xaxes(
-            range = [-1,5],
+            range = [-20,-14],
             scaleanchor = "x",
             scaleratio = 1,
         )
@@ -329,16 +328,27 @@ class Population:
         serial_num = [iterate.serial_number for iterate in self.population]
         combined_array = np.array([ranks, cd, serial_num]).T.tolist()
         combined_array = np.array(sorted(combined_array, key = operator.itemgetter(0,1)))
-        selected_indices = combined_array[0:population_size,-1].astype(int)
+        # print(combined_array)
+        # print(f)
+        selected_indices = combined_array[0:self.population_size,-1].astype(int)
 
         survivors = []
         for iterate in selected_indices:
             point, _ = self.fetch_by_serial_number(iterate)
             
             survivors.append(point.sol_vec)
+            
         
         survivors = np.array(survivors)
-        
+        # for survivor in survivors:
+            
+        #     for iterate,j in enumerate(self.bounds):
+        #         if survivor[iterate] < j[0]:
+        #             survivors[iterate][0] = j[0]
+        #         if survivor[iterate] > j[1]:
+        #             survivors[iterate][1] = j[1]
+        # print(survivors)
+        # print(f)
         
         return Population(self.population_size, self.num_variables,
                             self.bounds, self.objectives, self.seed+3,
@@ -461,8 +471,11 @@ class GARoutine:
             # print("Crossover Took Place: {}, {}".format(biased_toss, crossover_prob))
             p1 = sol_vec[p1_index,:]
             p2 = sol_vec[p2_index, :]
-            child_1 = 0.5 * ((p1 + p2) - beta*(p1-p2))
-            child_2 = 0.5 * ((p1 + p2) + beta*(p2-p1))
+            child_1 = 0.5 * ((p1 + p2) + beta*(p1-p2))
+            child_2 = 0.5 * ((p1 + p2) - beta*(p1-p2))
+            # print(child_1)
+            # print(child_2)
+            # print(f)
             offsprings_1 = child_1
             offsprings_2 = child_2
         else:
@@ -494,12 +507,15 @@ class GARoutine:
             
             if biased_toss <= mutation_prob:
                 delta_bar = self.calculate_delta_bar(p_curve_param_mutation, biased_toss)
-                mut_offspring = []
-                gene = sol_vec[iterate,:] + ((bound_length[1]-bound_length[0]) * delta_bar)
-                for iterate_2, b in bounds:
+                # mut_offspring = []
+                # print(bound_length)
+                mut_offspring = sol_vec[iterate,:] + ((bound_length) * delta_bar)
+                
+                # print(f)
+                # for iterate_2, b in bounds:
                     
-                    if gen < b[]
-                    mut_offspring = 
+                #     if gen < b[]
+                #     mut_offspring = 
 
                 offsprings.append(mut_offspring)
             else:
@@ -517,208 +533,3 @@ class GARoutine:
             delta_bar = 1 - ((2*(1-toss))**(1/(p_curve_param + 1))) 
         
         return delta_bar
-
-# def obj_1(pop):
-#     x = pop[:, 0]
-#     return x
-
-# def obj_2(pop):
-#     y = pop[:,1:]
-#     g = 1 + (9/29) * (np.sum(y,1))
-#     h = 1 - (pop[:,0]/g)**2
-
-#     return g*h
-
-def obj_1(pop):
-    x = pop[:, 0]
-
-    return x**2
-
-def obj_2(pop):
-    x = pop[:, 0]
-    return x**2
-
-
-
-# def obj_1(pop):
-#     x = pop[:, 0]
-#     return x
-
-# def obj_2(pop):
-#     x = pop[:,0]
-#     y = pop[:,1]
-#     return 1 + y - x**2
-
-objective_1 = {}
-objective_1["type"] = "Minimize"
-objective_1["function"] = obj_1
-
-objective_2 = {}
-objective_2["type"] = "Minimize"
-objective_2["function"] = obj_2
-
-
-objectives_list = [objective_1, objective_2]
-
-objectives = Objectives(objectives_list)
-
-
-population_size = 150
-num_variables = 1
-bounds = [[-55,55]]*1
-# print(bounds)
-seed = 123456
-rng = default_rng(seed)
-crossover_prob = 0.9
-mutation_prob = 0.1
-
-p_curve_param = 2
-p_curve_param_mutation = 5
-
-
-pop = Population(population_size, num_variables, bounds, objectives, rng.integers(1e16))
-# pop.plotPopulationwithFrontier()
-
-history = []
-import plotly.graph_objects as go
-
-df = pd.DataFrame(columns=['Generation', 'Rank', 'x', 'y'])
-num_generations = 50
-for g in range(0,num_generations):
-    # gen_seed = rng.randint(0,10000000)
-
-    print("Generation {}".format(g))
-    # print([iterate.rank for iterate in pop.population])
-    fds = NonDominatedSorting(pop)
-    fds.crowding_distance(pop)
-    
-    print("Begining GA Routine")
-    ga = GARoutine(pop, rng.integers(1e16))
-    sel_pop = ga.crowded_binary_tournament_selection()
-    crossover_offsprings = ga.sbx_crossover_operator(sel_pop, crossover_prob, p_curve_param)
-    mut_offspring = ga.polynomial_mutation_operator(crossover_offsprings, bounds, mutation_prob, p_curve_param_mutation)
-
-    new_sol_vecs = np.vstack((np.array(pop.get_all_sol_vecs()), mut_offspring))
-
-
-    temp_extended_pop = Population(population_size, num_variables, bounds, objectives, rng.integers(1e16), new_sol_vecs, False)
-    fds = NonDominatedSorting(temp_extended_pop)
-    fds.crowding_distance(temp_extended_pop)
-    print("Ending GA Routine")
-    print("Begining kill")
-    new_pop = temp_extended_pop.thanos_kill_move()
-    fds = NonDominatedSorting(new_pop)
-    fds.crowding_distance(new_pop)
-    pop = new_pop
-    print("******")
-    print(pop.get_all_sol_vecs())
-    for iterate in pop.population:
-        df = df.append({'Generation' : g, 
-                        'Rank':  iterate.rank, 'x': iterate.corres_eval[0], 'y': iterate.corres_eval[1]}, ignore_index=True)
-
-
-pop.plotPopulation()
-
-# import matplotlib.pyplot as plt
-
-
-# for ran in df[df['Generation'] == num_generations-1].Rank.unique():
-#     # print(ran)
-        
-#     x=df[df['Generation'] == num_generations-1][df[df['Generation'] == num_generations-1]['Rank'] == ran].sort_values(by = "x")["x"],
-#     y=df[df['Generation'] == num_generations-1][df[df['Generation'] == num_generations-1]['Rank'] == ran].sort_values(by = "x")["y"],
-#     # # plt.plot(x,y, ".")
-#     # print(x[0].tolist())
-#     plt.plot(x[0].tolist(),y[0].tolist(), ".")
-#     plt.plot(x[0].tolist(),y[0].tolist(), "-")
-
-# plt.show()
-
- 
-
-
-# import matplotlib.pyplot as plt
-# from matplotlib.animation import FuncAnimation
-    
-
-
-
-# fig = plt.figure(figsize=(12,8))
-# axes = fig.add_subplot(1,1,1)
-
-
-# axes.set_xlim(-1, 50)
-# axes.set_ylim(-1, 50)
-
-# # line_, = ax.plot([],[])
-# lines = []
-# for j in range(10):
-#     lines.append(axes.plot([], [], linestyle='--', marker='o', lw=1))
-
-
-# def animate(i):
-    
-#     # create a color dict for each cat
-#     # for ran in df[df['Generation'] == i].Rank.unique():
-#         # print(ran)
-        
-
-#     for ran in df[df['Generation'] == i].Rank.unique():
-#         x=df[df['Generation'] == i][df[df['Generation'] == i]['Rank'] == int(ran)].sort_values(by = "x")["x"],
-#         y=df[df['Generation'] == i][df[df['Generation'] == i]['Rank'] == int(ran)].sort_values(by = "x")["y"],
-#         # print(lines[int(ran)])
-#         # print(f)
-#         if ran < 10:
-#             lines[int(ran)][0].set_data(x[0].tolist(),y[0].tolist())
-#         else:
-#             if ran < 10:
-#                 lines[int(ran)][0].set_data([], [])
-#             else:
-#                 break
-            
-
-#     # axes.autoscale()
-        
-#     # ax.autoscale(True, 'both')
-#     return lines ,
-        
-
-# animation = FuncAnimation(fig, func=animate, frames=num_generations,interval=30)
-# plt.show() 
-# # allFrames = []
-# # for gen in range(num_generations):
-# #     frames = []
-# #     for ran in df[df['Generation'] == gen].Rank.unique():
-# #         # print(ran)
-# #         x_val = df[df['Generation'] == gen][df[df['Generation'] == gen]['Rank'] == int(ran)].sort_values(by = "x")["x"],
-# #         y_val = df[df['Generation'] == gen][df[df['Generation'] == gen]['Rank'] == int(ran)].sort_values(by = "x")["y"],
-# #         df_temp = pd.DataFrame(dict(
-# #                     x = x_val[0].tolist(),
-# #                     y = y_val[0].tolist(),
-# #                 ))
-# #         print(df_temp)
-# #         frames.append(go.Scatter(
-# #             x = df_temp['x'],
-# #             y = df_temp['y'],
-# #             mode="lines+markers"
-# #             ))
-# #     allFrames.append(go.Frame(data = frames))
-
-# # fig = go.Figure(
-# #     data=[go.Scatter(
-# #             x=[],
-# #             y = [],
-# #             mode="lines+markers"
-# #             )],
-# #     layout=go.Layout(
-# #         xaxis=dict(range=[-1, 20], autorange=False),
-# #         yaxis=dict(range=[-1, 20], autorange=False),
-# #         title_text="Animation", hovermode="closest",
-# #         updatemenus=[dict(type="buttons",
-# #                           buttons=[dict(label="Play",
-# #                                         method="animate",
-# #                                         args=[None])])]),
-# #     frames=allFrames
-# # )
-
-# # fig.show()
