@@ -1,5 +1,3 @@
-from cProfile import label
-from turtle import color
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
@@ -37,20 +35,20 @@ def generate_plot(result_changin, c, str_xlabel, save_as):
     plt.savefig(save_as, dpi = 500, format = 'png')
 
 
-with open("Himmel_data/himmelblaus_changing_c1_output.pkl", "rb") as f:
+with open("hc3_data/hc3_changing_c1_output.pkl", "rb") as f:
     result_changin_c1 = pickle.load(f)
 
 c1 = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-generate_plot(result_changin_c1, c1, "c1", "images/himmelblaus_changing_c1.png")
+generate_plot(result_changin_c1, c1, "c1", "images/hc3_changing_c1.png")
 
-with open("Himmel_data/himmelblaus_changing_c2_output.pkl", "rb") as f:
+with open("hc3_data/hc3_changing_c2_output.pkl", "rb") as f:
     result_changin_c2 = pickle.load(f)
 
 c2 = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-generate_plot(result_changin_c2, c2, "c2", "images/himmelblaus_changing_c2.png")
+generate_plot(result_changin_c2, c2, "c2", "images/hc3_changing_c2.png")
 
-with open("Himmel_data/himmelblaus_changing_w_output.pkl", "rb") as f:
+with open("hc3_data/hc3_changing_w_output.pkl", "rb") as f:
     result_changin_w = pickle.load(f)
 
 w = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-generate_plot(result_changin_w, w, "w", "images/himmelblaus_changing_w.png")
+generate_plot(result_changin_w, w, "w", "images/hc3_changing_w.png")
