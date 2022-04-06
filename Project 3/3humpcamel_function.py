@@ -36,7 +36,7 @@ c1 = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 total_c1 = len(c1)
 total_pop_size = pop_size
 replications = 10
-generations = 100000
+generations = 10000
 result_arr = np.zeros((total_c1,pop_size,replications))
 pbest_track = np.zeros((total_c1,replications, pop_size, dim))
 for c in tqdm(range(len(c1))):
@@ -85,7 +85,7 @@ c2 = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 total_c2 = len(c2)
 total_pop_size = pop_size
 replications = 10
-generations = 100000
+generations = 10000
 result_arr = np.zeros((total_c1,pop_size,replications))
 pbest_track = np.zeros((total_c1,replications, pop_size, dim))
 for c in tqdm(range(len(c2))):
@@ -133,7 +133,7 @@ w = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 total_w = len(w)
 total_pop_size = pop_size
 replications = 10
-generations = 100000
+generations = 10000
 result_arr = np.zeros((total_c1,pop_size,replications))
 pbest_track = np.zeros((total_c1,replications, pop_size, dim))
 for c in tqdm(range(len(w))):
